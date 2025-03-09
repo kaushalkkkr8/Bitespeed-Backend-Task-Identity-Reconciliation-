@@ -1,23 +1,21 @@
-import express from "express"
+import express from "express";
 
-import dotenv from 'dotenv'
+import dotenv from "dotenv";
 
-dotenv.config()
-const app = express()
+dotenv.config();
+const app = express();
 
-app.use(express.json())
+app.use(express.json());
 
-app.get('/', (req, res) => {
-    res.send("Surver is running")
-})
+app.get("/", (req, res) => {
+  res.send("Surver is running");
+});
 
-import orderRoutes from "./Routes/orderRoute.js"
+import orderRoutes from "./Routes/orderRoute.js";
 
-app.use('/identify',orderRoutes)
+app.use("/identify", orderRoutes);
 
-
-const PORT= process.env.PORT||5000
-app.listen(PORT,()=>{
-    console.log("app is running in port:",PORT);
-    
-})
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log("app is running in port:", PORT);
+});
