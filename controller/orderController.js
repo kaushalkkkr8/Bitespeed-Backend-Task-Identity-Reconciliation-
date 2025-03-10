@@ -1,4 +1,3 @@
-
 import { and, eq, inArray, or } from "drizzle-orm";
 import { db } from "../db.config.js";
 import { contacts } from "../schema.js";
@@ -7,7 +6,9 @@ export const orderController = async (req, res) => {
   let { phoneNumber, email } = req.body;
 
   // Trim and handle empty values
-  phoneNumber = phoneNumber?.trim() || null;
+  // phoneNumber = phoneNumber?.trim() || null;
+  phoneNumber = phoneNumber ? String(phoneNumber).trim() || null : null;
+
   email = email?.trim() || null;
 
   if (!email && !phoneNumber) {
@@ -15,8 +16,6 @@ export const orderController = async (req, res) => {
   }
 
   try {
-    // Fetch users matching email or phoneNumber
-
     if (phoneNumber && email) {
       console.log("both");
       let existingUsers = await db
@@ -25,11 +24,9 @@ export const orderController = async (req, res) => {
         .where(or(eq(contacts.email, email), eq(contacts.phoneNumber, phoneNumber)));
 
       if (existingUsers?.length) {
-        // Identify primary users
         let primaryUsers = existingUsers.filter((e) => e.linkPrecedence === "primary");
 
         if (primaryUsers.length === 0) {
-          // If all are secondary, fetch their primary user
           primaryUsers = await db
             .select()
             .from(contacts)
@@ -101,29 +98,26 @@ export const orderController = async (req, res) => {
           });
         }
 
-        // If one of the provided values exists, link as a secondary user
-       
-          const newSecondary = await db
-            .insert(contacts)
-            .values({
-              phoneNumber,
-              email,
-              linkedId: primaryUser.id,
-              linkPrecedence: "secondary",
-            })
-            .returning();
+        const newSecondary = await db
+          .insert(contacts)
+          .values({
+            phoneNumber,
+            email,
+            linkedId: primaryUser.id,
+            linkPrecedence: "secondary",
+          })
+          .returning();
 
-          allSecondaryUsers.push(newSecondary[0]);
+        allSecondaryUsers.push(newSecondary[0]);
 
-          return res.status(201).json({
-            contact: {
-              primaryContactId: primaryUser.id,
-              emails: Array.from(new Set([primaryUser.email, ...allSecondaryUsers.map((e) => e.email)].filter(Boolean))),
-              phoneNumbers: Array.from(new Set([primaryUser.phoneNumber, ...allSecondaryUsers.map((e) => e.phoneNumber)].filter(Boolean))),
-              secondaryContactIds: allSecondaryUsers.map((e) => e.id),
-            },
-          });
-        
+        return res.status(201).json({
+          contact: {
+            primaryContactId: primaryUser.id,
+            emails: Array.from(new Set([primaryUser.email, ...allSecondaryUsers.map((e) => e.email)].filter(Boolean))),
+            phoneNumbers: Array.from(new Set([primaryUser.phoneNumber, ...allSecondaryUsers.map((e) => e.phoneNumber)].filter(Boolean))),
+            secondaryContactIds: allSecondaryUsers.map((e) => e.id),
+          },
+        });
       }
 
       const newUser = await db
@@ -147,11 +141,15 @@ export const orderController = async (req, res) => {
       });
     } else if (phoneNumber) {
       let existingUsers = await db.select().from(contacts).where(eq(contacts.phoneNumber, phoneNumber));
+
+      
+      if (!existingUsers.length) {
+        return res.status(400).json({ message: "No user with this phone number" });
+      }
       if (existingUsers.length) {
         let primaryUsers = existingUsers.filter((e) => e.linkPrecedence === "primary");
 
         if (primaryUsers.length === 0) {
-          // If all are secondary, fetch their primary user
           primaryUsers = await db
             .select()
             .from(contacts)
@@ -167,7 +165,7 @@ export const orderController = async (req, res) => {
 
         const allSecondaryUsers = await db.select().from(contacts).where(eq(contacts.linkedId, primaryUser.id));
 
-        const isAlreadyExisting = allSecondaryUsers?.some((e) => e.email === email || e.phoneNumber === phoneNumber);
+        const isAlreadyExisting = allSecondaryUsers?.some((e) => e.phoneNumber === phoneNumber);
 
         if (isAlreadyExisting) {
           return res.status(200).json({
@@ -181,13 +179,14 @@ export const orderController = async (req, res) => {
         }
       }
     } else if (email) {
-      console.log("email");
       let existingUsers = await db.select().from(contacts).where(eq(contacts.email, email));
+      if (!existingUsers.length) {
+        return res.status(400).json({ message: "No user with this email" });
+      }
 
-      if (existingUsers.length > 0) {
+      if (existingUsers.length) {
         let primaryUsers = existingUsers.filter((e) => e.linkPrecedence === "primary");
         if (primaryUsers.length === 0) {
-          // If all are secondary, fetch their primary user
           primaryUsers = await db
             .select()
             .from(contacts)
@@ -203,7 +202,7 @@ export const orderController = async (req, res) => {
 
         const allSecondaryUsers = await db.select().from(contacts).where(eq(contacts.linkedId, primaryUser.id));
 
-        const isAlreadyExisting = allSecondaryUsers?.some((e) => e.email === email || e.phoneNumber === phoneNumber);
+        const isAlreadyExisting = allSecondaryUsers?.some((e) => e.email === email);
 
         if (isAlreadyExisting) {
           return res.status(200).json({
